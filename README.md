@@ -10,7 +10,7 @@
 
 Reel Focus adds seeking, volume, playback speed, looping, fullscreen, and a distraction-free focus mode to Instagram's Reels feed, direct reel pages, and video dialogs opened from Saved. Everything runs locally in the page with vanilla JavaScript and CSS.
 
-**[Download v1.0.0](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.0.0/reel-focus-1.0.0.zip)** · [Release notes](RELEASE.md) · [Report a bug](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new) · [Request a feature](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new)
+**[Download v1.1.0](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.0/reel-focus-1.1.0.zip)** · [Release notes](RELEASE.md) · [Report a bug](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new) · [Request a feature](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new)
 
 No build step, runtime dependencies, background service worker, tracking, or video downloading. Desktop Chrome, Edge, Brave, Opera, and Vivaldi are the target browsers.
 
@@ -42,6 +42,7 @@ No build step, runtime dependencies, background service worker, tracking, or vid
 | Playback controls | Play/pause, seek with elapsed time and duration, volume, and mute. |
 | Playback speed | Choose 0.5×, 1×, 1.25×, 1.5×, or 2×. |
 | Loop toggle | Turn repeat playback on or off. |
+| Rotation | Rotate only the video left/right in 90° steps, fit it without cropping, or reset with `0`. Rotation resets for each reel. |
 | Wrapper fullscreen | Keep the video and custom controls together in fullscreen; use Up/Down to navigate reels. |
 | Focus mode | Hide comments and surrounding UI, center the reel, and restore the layout with one toggle. Works inside and outside fullscreen. |
 | Active reel detection | Follow the visible reel as you scroll or open a video dialog from Saved. |
@@ -53,7 +54,7 @@ The overlay adapts to portrait reels with a two-row layout that keeps every cont
 
 No Node.js, npm, or build tools are needed to use the extension.
 
-1. [Download the installable v1.0.0 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.0.0/reel-focus-1.0.0.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
+1. [Download the installable v1.1.0 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.0/reel-focus-1.1.0.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
 
    ```sh
    git clone https://github.com/PranavP2207/Instagram-Reel-Tool-extension.git
@@ -82,6 +83,10 @@ Click fullscreen or press **F**. The extension fullscreens the existing main/dia
 
 Click the split-panel icon or press **C** for focus mode. The video fills the viewport with its aspect ratio preserved; comments and surrounding UI are hidden. Toggle again to restore them. This works independently of fullscreen. The last focus setting follows you to the next reel.
 
+Switching to another tab pauses playback. Returning resumes only a reel that was automatically paused; a reel you paused with the controls, Space/K, or a video click stays paused even if Instagram calls `play()`. Pause state resets when a new reel becomes active.
+
+Use the rotate buttons or **[ / ]** to turn a landscape reel in 90° steps. **0** resets its orientation. Only the video rotates; fitting updates on resize, fullscreen changes, and focus toggles. Rotation is not saved and resets when the active reel changes.
+
 ## Keyboard shortcuts
 
 | Key | Action |
@@ -95,8 +100,10 @@ Click the split-panel icon or press **C** for focus mode. The video fills the vi
 | Left / Right | Seek backward / forward 5 seconds |
 | Up / Down | Previous / next reel, including in fullscreen |
 | `<` / `>` | Slower / faster: 0.5×, 1×, 1.25×, 1.5×, 2× |
+| `[` / `]` | Rotate video left / right by 90° |
+| `0` | Reset rotation |
 
-Up/Down is reserved for reel navigation; use the slider for volume. Navigation first uses Instagram's labeled next/previous button, then another loaded reel, then the nearest scroll container. On most keyboard layouts, `<` and `>` require Shift.
+Up/Down is reserved for reel navigation; use the slider for volume. Navigation first uses Instagram's next/previous controls, including ARIA labels and SVG titles. It then uses another loaded reel; dialogs fall back to one ArrowLeft/ArrowRight event, while the feed falls back to scrolling. A missing previous item leaves the dialog alone. On most keyboard layouts, `<` and `>` require Shift.
 
 Shortcuts are ignored in inputs, textareas, selects, contenteditable regions, and ARIA textboxes. The controls retain normal range/select keyboard operation. Space on a focused button activates that button. Ctrl, Alt, and Meta combinations pass through. Handled shortcuts are stopped so Instagram does not perform the same action a second time; native like/comment/share clicks outside the extension pass through.
 
@@ -104,10 +111,10 @@ Shortcuts are ignored in inputs, textareas, selects, contenteditable regions, an
 
 - Instagram changes its markup frequently and runs layout experiments. The adapter may need adjustment; the extension safely detaches when no suitable video is visible. Test the feed, a direct reel, and Saved on your own account.
 - Saved video dialogs are treated as reels even when Instagram keeps a Saved or `/p/` URL. This may also enable the controls on an ordinary video post opened in a dialog. Saved grid thumbnails alone are not activated.
-- Next/previous navigation needs Instagram's native navigation button, a loaded neighboring reel, or a scrollable feed. Localized button labels can be added to `CONFIG`. The extension does not fetch or preload reels itself.
+- Next/previous navigation needs Instagram's native navigation button, a loaded neighboring reel, or a scrollable feed. Localized button labels can be added to the `nextLabels`/`previousLabels` arrays in `CONFIG`. The dialog keyboard fallback may be ignored if Instagram requires trusted events. The extension does not fetch or preload reels itself.
 - Fullscreen requires a real click or keypress. Browser policy may refuse it. Content Instagram portals outside the fullscreen wrapper will not be visible there; exit fullscreen to interact with it.
 - Focus hides Instagram's close/comment/share UI along with the comments; press C to restore it. While a reel is focused, wheel scrolling over the fixed video can be intercepted by Instagram; Up/Down provides explicit navigation.
-- Live streams or media with no finite duration cannot be sought. Instagram may reset playback properties when replacing its player. Browser autoplay policy can still require a Play click. Failed playback/fullscreen requests are ignored safely.
+- Live streams or media with no finite duration cannot be sought. Instagram may reset playback properties when replacing its player. Audible autoplay may use temporary mute until a real click/key; browser policy can still require a Play click if all autoplay is denied. Failed playback/fullscreen requests are ignored safely.
 - Desktop Chromium browsers are targeted. Safari, Firefox, mobile browsers without desktop extension support, and Instagram's native apps are outside scope. Fixture testing uses Chromium; other browsers have not been manually verified.
 
 ## Privacy and permissions
@@ -117,7 +124,7 @@ Shortcuts are ignored in inputs, textareas, selects, contenteditable regions, an
 - No downloading, scraping, saving, or transmitting Instagram content.
 - No background service worker, broad host permissions, tabs permission, or web-request access.
 
-Volume, mute, speed, loop, and focus are stored together in `chrome.storage.local` under `reelFocusPreferences`. Playback preferences also follow changes made through Instagram's native controls. On first use, the extension adopts the current video's volume, mute, and speed; looping defaults to on. Preferences remain in the browser profile and are not synced or transmitted.
+Volume, mute, speed, loop, and focus are stored together in `chrome.storage.local` under `reelFocusPreferences`. A fresh install defaults to **unmuted, volume 1.0**; an existing saved mute preference is respected. Sound changes are saved only from the extension's controls/shortcuts or a real click on Instagram's native audio control. Instagram's programmatic mute/volume resets are reverted instead of saved. If audible autoplay is denied, playback temporarily falls back to muted and unmutes on the first real page click/key; the temporary mute is never saved. Rotation and pause intent are not persisted. Preferences remain in the browser profile and are not synced or transmitted.
 
 ## Troubleshooting
 
@@ -157,7 +164,7 @@ Then run `node tests/browser.cjs` with a Linux Chromium installation at `/usr/bi
 CHROMIUM_PATH="$(node -p 'require("playwright").chromium.executablePath()')" node tests/browser.cjs
 ```
 
-The browser checks cover playback, seeking, settings, typing guards, event isolation, wrapper fullscreen, focus restoration, navigation, persistence across reloads, auto-hide, Saved-style dialogs, SPA routes, and lifecycle cleanup. Fixtures use a generated video and do not contact Instagram. This environment used the administrator-policy fallback. A manual installation check against your logged-in Instagram layout is still needed.
+The browser checks cover playback, seeking, settings, user-vs-automatic tab pause, blocked site auto-resume, preference-wins mute/volume, native mute clicks, muted autoplay recovery, rotation fitting/reset, typing guards, event isolation, wrapper fullscreen, focus continuity, Saved previous-button/keyboard fallback, persistence across reloads, auto-hide, SPA routes, and lifecycle cleanup. Fixtures use a generated video and do not contact Instagram. This environment used the administrator-policy fallback. A manual installation check against your logged-in Instagram layout is still needed.
 
 <details>
 <summary>Project structure</summary>
@@ -178,8 +185,8 @@ Instagram-Reel-Tool-extension/
 ├── docs/
 │   └── preview.png         # Screenshot of the generated offline fixture
 ├── packages/
-│   ├── reel-focus-1.0.0.zip
-│   └── reel-focus-1.0.0.zip.sha256
+│   ├── reel-focus-1.1.0.zip
+│   └── reel-focus-1.1.0.zip.sha256
 └── tests/                  # Development only
     ├── browser.cjs
     └── fixture.webm        # Generated solid-color test video
@@ -200,10 +207,12 @@ All Instagram selectors and layout heuristics are in the clearly labeled `CONFIG
 | `selectors.dialogs`, `selectors.main`, `scope(video)` | Saved dialogs or the main reel wrapper change. The scope must contain the video and remain mounted while navigating. |
 | `reelRoute`, `eligible(video)` | Reel URLs or Saved overlay presentation change. |
 | `selectors.hidden`, `minArea`, `minVisibleRatio` | Instagram changes hidden/preloaded video handling. |
-| `selectors.labeled`, `selectors.clickable`, `nextLabel`, `previousLabel`, `navigationRegion(scope)` | Native navigation labels change, particularly in another language. |
+| `selectors.labeled`, `selectors.clickable`, `nextLabels`, `previousLabels`, `navigationRegion(scope)` | Native navigation labels change, particularly in another language. |
 | `selectors.typing` | Instagram introduces a different kind of text editor. |
 
 One debounced MutationObserver discovers and prunes videos; one IntersectionObserver tracks their media frames, including clipping by nested scroll containers. Visible area and a small preference for the current reel choose the active video, with dialogs taking priority. Scroll/resize events schedule checks without polling. The observer checks the URL cheaply, and `popstate` handles back/forward navigation.
+
+Set `CONFIG.debug = true` temporarily to log which navigation path was used and why a dialog button was not found. It is off by default.
 
 The controls live in a Shadow DOM. Focus uses removable `data-rc-*` attributes and the `rc-focus` class on `<html>` to hide sibling branches along the active video's ancestor path. Visibility preserves the original feed layout, and the video's slot is reserved while it is centered. No comments, media nodes, or Instagram handlers are removed. Active-video listeners are aborted on switching; observers, listeners, timers, animation frames, and focus markers are cleaned up on page exit and restored after a back-forward cache return. Seek progress uses animation frames only while the bar is visible and playback is running.
 

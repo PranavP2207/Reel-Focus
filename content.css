@@ -1,6 +1,23 @@
 /* Only our explicitly marked elements change. Visibility preserves feed geometry. */
+html.rc-focus,
+html.rc-focus [data-rc-path] { background-color: #09090e !important; }
+html.rc-focus::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: #09090e;
+  z-index: -1;
+  pointer-events: none;
+}
+video[data-rc-rotation] {
+  transform: rotate(var(--rc-angle, 0deg)) scale(var(--rc-rotation-scale, 1)) !important;
+  transform-origin: center !important;
+  object-fit: contain !important;
+}
 html.rc-focus [data-rc-hidden],
-html.rc-focus [data-rc-hidden] * {
+html.rc-focus [data-rc-hidden] *,
+html.rc-focus [data-rc-path] > :not([data-rc-path]):not([data-rc-video]):not([data-rc-host]),
+html.rc-focus [data-rc-path] > :not([data-rc-path]):not([data-rc-video]):not([data-rc-host]) * {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -25,13 +42,13 @@ html.rc-focus [data-rc-slot] {
 }
 html.rc-focus video[data-rc-video] {
   position: fixed !important;
-  inset: 0 !important;
+  inset: 50% auto auto 50% !important;
   width: 100vw !important;
   height: 100vh !important;
   max-width: none !important;
   max-height: none !important;
   margin: 0 !important;
-  transform: none !important;
+  transform: translate(-50%, -50%) rotate(var(--rc-angle, 0deg)) scale(var(--rc-rotation-scale, 1)) !important;
   object-fit: contain !important;
   background: #09090e !important;
   visibility: visible !important;

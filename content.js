@@ -7,22 +7,30 @@
       videos: 'video', dialogs: '[role="dialog"], dialog[open]', main: 'main, [role="main"]',
       hidden: '[hidden], [aria-hidden="true"]',
       typing: 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
-      labeled: '[aria-label]', clickable: 'button, [role="button"], a[href]'
+      labeled: '[aria-label], svg title', title: 'svg title', clickable: 'button, [role="button"], a[href]'
     },
     reelRoute: /^\/reels?(?:\/|$)/,
-    nextLabel: /^(next|next reel|next video)$/i,
-    previousLabel: /^(previous|previous reel|previous video)$/i,
+    nextLabels: ['next', 'next reel', 'next video', 'next post', 'go forward'],
+    previousLabels: ['previous', 'prev', 'previous reel', 'previous video', 'previous post', 'go back', 'back'],
+    ambiguousBack: ['back', 'go back'], audioLabels: ['mute', 'unmute', 'sound', 'audio', 'volume'],
+    source: video => video.getAttribute('src') || video.currentSrc,
+    debug: false,
     frame: video => video.parentElement || video,
     scope(video) {
       return video.closest(this.selectors.dialogs) || video.closest(this.selectors.main) || document.body;
     },
-    navigationRegion(scope) { return scope.matches(this.selectors.dialogs) ? scope.parentElement : scope; },
+    navigationRegion(scope) {
+      if (!scope.matches(this.selectors.dialogs)) return scope;
+      for (let i = 0; i < 3 && scope.parentElement && scope.parentElement !== document.body; i++) scope = scope.parentElement;
+      return scope;
+    },
     scrollable: node => node.scrollHeight > node.clientHeight + 8 && /auto|scroll/.test(getComputedStyle(node).overflowY),
     // Video dialogs include Saved overlays, even when Instagram keeps the Saved or /p/ URL.
     eligible(video) { return this.reelRoute.test(location.pathname) || !!video.closest(this.selectors.dialogs); },
     speeds: [0.5, 1, 1.25, 1.5, 2], discoveryDelay: 90, idleDelay: 2500,
     navigationDelay: 300, minArea: 400, minVisibleRatio: 0.08, activeBias: 1.03, maxBarWidth: 600,
-    compactWidth: 440, barHeight: 112, compactBarHeight: 146,
+    compactWidth: 440, barHeight: 128, compactBarHeight: 162,
+    gestureDelay: 750, ownChangeDelay: 250, navigationVerticalTolerance: 0.4,
     storageKey: 'reelFocusPreferences'
   };
   const paths = {
@@ -32,7 +40,9 @@
     loop: '<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/>',
     focus: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/>',
     expand: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
-    collapse: '<path d="M3 8h5V3m13 5h-5V3M8 21v-5H3m13 5v-5h5"/>'
+    collapse: '<path d="M3 8h5V3m13 5h-5V3M8 21v-5H3m13 5v-5h5"/>',
+    rotateLeft: '<path d="M3 9V3m0 6h6M3 9a9 9 0 1 1 1 9"/>',
+    rotateRight: '<path d="M21 9V3m0 6h-6m6 0a9 9 0 1 0-1 9"/>'
   };
   const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
   const button = (id, label, icon, toggle = false) => `<button id="${id}" type="button" aria-label="${label}" title="${label}" ${toggle ? 'aria-pressed="false"' : ''}>${svg(icon)}</button>`;
@@ -51,6 +61,7 @@
       .bar.idle{opacity:0;pointer-events:none} .top,.row{display:flex;align-items:center;gap:8px}
       .top{justify-content:space-between;margin-bottom:6px;color:#c7c3d8;font-size:10px;letter-spacing:1.5px}
       .brand{font-weight:700}.dot{color:#b6a0ff;margin-right:5px}.hint{letter-spacing:.2px;color:#b0aabc}
+      .tools{display:flex;gap:4px}.tools button{height:28px;width:28px;padding:5px}
       .row{gap:6px} button,select{font:inherit;color:inherit;border:0;background:transparent;border-radius:8px;height:32px}
       button{width:32px;padding:7px;cursor:pointer;flex-shrink:0} button:hover,select:hover{background:#ffffff18}
       button[aria-pressed=true]{color:#c3b0ff;background:#b6a0ff20} svg{display:block;width:18px;height:18px}
@@ -68,7 +79,7 @@
       @media(prefers-reduced-motion:reduce){.bar{transition:none}}
     </style>
     <section id="bar" class="bar" aria-label="Reel playback controls">
-      <div class="top"><span class="brand"><span class="dot">●</span>REEL FOCUS</span><span class="hint">↑ ↓ reels · C focus</span></div>
+      <div class="top"><span class="brand"><span class="dot">●</span>REEL FOCUS</span><span class="hint">↑ ↓ reels · C focus</span><span class="tools">${button('rotateLeft', 'Rotate left 90° ([)', 'rotateLeft')}${button('rotateRight', 'Rotate right 90° (])', 'rotateRight')}</span></div>
       <input id="seek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Seek reel" disabled>
       <div class="row">
         ${button('play', 'Play (Space / K)', 'play')}
@@ -81,17 +92,21 @@
         ${button('fullscreen', 'Fullscreen (F)', 'expand')}
       </div>
     </section>`;
-  const ui = Object.fromEntries(['bar', 'play', 'mute', 'seek', 'time', 'volume', 'speed', 'loop', 'focus', 'fullscreen'].map(id => [id, shadow.getElementById(id)]));
-  let prefs = { volume: 1, muted: true, speed: 1, loop: true, focus: false };
-  let storedPlayback = false, active = null, scope = null, mediaEvents = null, events = null;
+  const ui = Object.fromEntries(['bar', 'play', 'mute', 'seek', 'time', 'volume', 'speed', 'loop', 'focus', 'fullscreen', 'rotateLeft', 'rotateRight'].map(id => [id, shadow.getElementById(id)]));
+  let prefs = { volume: 1, muted: false, speed: 1, loop: true, focus: false };
+  let active = null, scope = null, mediaEvents = null, events = null;
   let mutation = null, intersection = null, discoveryTimer = 0, saveTimer = 0, idleTimer = 0;
   let progressFrame = 0, layoutFrame = 0, visible = false, hovering = false, started = false;
   let lastHref = location.href, lastNavigation = 0, ownFullscreen = null, pendingFullscreen = null, slot = null;
   let bounds = null;
-  const tracked = new Map(), intersections = new Map(), focusMarks = new Set();
+  let userPaused = false, autoPaused = false, gesture = null, rotation = 0, activeSource = '';
+  let ownSoundChange = null, ownPlay = null, temporarilyMuted = false, forwardingNavigation = false, pendingNavigation = null;
+  const tracked = new Map(), intersections = new Map(), focusMarks = new Map();
   const ignore = () => {};
   const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
   const time = n => Number.isFinite(n) ? `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}` : '—:—';
+  const matchesLabel = (label, words) => words.some(word => ` ${label.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()} `.includes(` ${word.toLowerCase()} `));
+  const debug = (...message) => { if (CONFIG.debug) console.log('[Reel Focus]', ...message); };
 
   function save() {
     clearTimeout(saveTimer);
@@ -101,11 +116,84 @@
     try { chrome.storage.local.set({ [CONFIG.storageKey]: prefs }, () => { void chrome.runtime.lastError; }); } catch { /* Extension reloaded. */ }
     saveTimer = 0;
   }
-  function persistPlayback() {
+  function persistPlayback(sound = false) {
     if (!active) return;
-    Object.assign(prefs, { volume: active.volume, muted: active.muted, speed: active.playbackRate, loop: active.loop });
-    storedPlayback = true;
+    if (sound) { temporarilyMuted = false; prefs.volume = active.volume; prefs.muted = active.muted; }
+    Object.assign(prefs, { speed: active.playbackRate, loop: active.loop });
     save();
+  }
+  function recentGesture(video) { return gesture?.video === video && performance.now() < gesture.until; }
+  function rememberGesture(event) {
+    unlockSound(event);
+    if (!event.isTrusted || !active || event.composedPath().includes(host)) return;
+    const path = event.composedPath().filter(node => node instanceof Element);
+    const button = path.find(node => node.matches(CONFIG.selectors.clickable));
+    const metadata = [...path, ...(button?.querySelectorAll(CONFIG.selectors.labeled) || [])];
+    const audio = metadata.some(node => matchesLabel(node.getAttribute('aria-label') || (node.matches(CONFIG.selectors.title) ? node.textContent : '') || '', CONFIG.audioLabels));
+    if (CONFIG.frame(active).contains(event.target) || (audio && scope?.contains(event.target))) {
+      if (event.type === 'click' && recentGesture(active)) return;
+      if (audio) ownSoundChange = null;
+      gesture = { video: active, audio, play: !audio && active.paused, until: performance.now() + CONFIG.gestureDelay };
+    }
+  }
+  function applySound(resume = true) {
+    if (!active) return;
+    const muted = prefs.muted || temporarilyMuted;
+    if (active.volume === prefs.volume && active.muted === muted) return;
+    ownSoundChange = { video: active, volume: prefs.volume, muted, until: performance.now() + CONFIG.ownChangeDelay };
+    const playing = !active.paused;
+    active.volume = prefs.volume; active.muted = muted;
+    if (resume && playing && active.paused && !userPaused && !document.hidden) playVideo();
+  }
+  function playVideo(userInitiated = false) {
+    const video = active;
+    if (!video?.isConnected || document.hidden || userPaused) return;
+    if (userInitiated) ownPlay = { video, until: performance.now() + CONFIG.gestureDelay };
+    applySound(false);
+    video.play().catch(error => {
+      if (active !== video || document.hidden || userPaused || prefs.muted || error.name !== 'NotAllowedError') return;
+      temporarilyMuted = true;
+      applySound();
+      video.play().catch(ignore); // Muted autoplay fallback never changes the saved sound preference.
+    });
+  }
+  function unlockSound(event) {
+    if (!event.isTrusted || !active || !temporarilyMuted || prefs.muted) return;
+    if (event.composedPath().includes(ui.mute) || (event.key?.toLowerCase() === 'm' && !event.composedPath().some(node => node instanceof Element && node.matches(CONFIG.selectors.typing)))) return;
+    temporarilyMuted = false;
+    const playing = !active.paused;
+    applySound();
+    if (playing && !userPaused) playVideo(true);
+  }
+  function guardPlayback(event) {
+    const video = event.target;
+    if (!video.matches?.(CONFIG.selectors.videos) || !CONFIG.eligible(video)) return;
+    if (video === active && !document.hidden && ((recentGesture(video) && gesture.play) || (ownPlay?.video === video && performance.now() < ownPlay.until))) userPaused = false;
+    if (document.hidden || (video === active && userPaused)) video.pause();
+    else if (video === active && event.type === 'playing') applySound();
+  }
+  function visibilityChanged() {
+    if (document.hidden) {
+      cancelAnimationFrame(progressFrame);
+      if (active && !active.paused) autoPaused = !userPaused;
+      else if (active && !autoPaused) userPaused = true;
+      for (const video of tracked.keys()) video.pause();
+    } else {
+      if (userPaused) active?.pause();
+      else if (autoPaused) playVideo();
+      autoPaused = false;
+      schedule(); show();
+    }
+  }
+  function clearRotation(video) {
+    video?.removeAttribute('data-rc-rotation');
+    for (const key of ['--rc-angle', '--rc-rotation-scale']) video?.style.removeProperty(key);
+  }
+  function applyRotation() { layout(); }
+  function rotate(direction) {
+    if (!active) return;
+    rotation = direction === 0 ? 0 : (rotation + direction * 90 + 360) % 360;
+    applyRotation(); layout(); show();
   }
   function label(id, text, icon) {
     ui[id].setAttribute('aria-label', text);
@@ -157,12 +245,18 @@
   function place() {
     layoutFrame = 0;
     if (!active || !active.isConnected) return;
-    bounds = active.getBoundingClientRect();
+    const frame = CONFIG.frame(active).getBoundingClientRect();
+    bounds = prefs.focus ? { left: 0, top: 0, right: innerWidth, bottom: innerHeight, width: innerWidth, height: innerHeight } : frame;
+    const videoWidth = prefs.focus ? innerWidth : active.offsetWidth, videoHeight = prefs.focus ? innerHeight : active.offsetHeight;
+    const scale = rotation % 180 ? Math.min(bounds.width / Math.max(1, videoHeight), bounds.height / Math.max(1, videoWidth)) : 1;
     const width = Math.min(CONFIG.maxBarWidth, innerWidth - 24, Math.max(0, bounds.width - 16));
     const compact = width < CONFIG.compactWidth, height = compact ? CONFIG.compactBarHeight : CONFIG.barHeight;
     const left = clamp(bounds.left + (bounds.width - width) / 2, 12, Math.max(12, innerWidth - width - 12));
     const top = clamp(Math.min(bounds.bottom, innerHeight) - height, 12, Math.max(12, innerHeight - height));
     // Custom properties survive the Shadow DOM's defensive `all: initial` reset.
+    active.toggleAttribute('data-rc-rotation', rotation !== 0);
+    active.style.setProperty('--rc-angle', `${rotation}deg`);
+    active.style.setProperty('--rc-rotation-scale', scale);
     host.style.cssText = `--rc-left:${left}px;--rc-top:${top}px;--rc-width:${width}px;`;
     ui.bar.classList.toggle('compact', compact);
   }
@@ -170,9 +264,7 @@
 
   function clearFocus() {
     document.documentElement.classList.remove('rc-focus');
-    for (const element of focusMarks) {
-      for (const name of ['data-rc-path', 'data-rc-hidden', 'data-rc-video', 'data-rc-slot']) element.removeAttribute(name);
-    }
+    for (const [element, names] of focusMarks) for (const name of names) element.removeAttribute(name);
     focusMarks.clear();
     if (slot) {
       slot.style.removeProperty('--rc-slot-height');
@@ -181,37 +273,49 @@
     }
   }
   function applyFocus() {
-    clearFocus();
-    if (!prefs.focus || !active?.isConnected) return;
-    slot = CONFIG.frame(active);
-    const rect = slot.getBoundingClientRect(), ancestors = [];
+    if (!prefs.focus) { clearFocus(); applyRotation(); return; }
+    if (!active?.isConnected) return;
+    const previousSlot = slot, nextSlot = CONFIG.frame(active), next = new Map(), ancestors = [];
+    const mark = (node, name) => { if (!next.has(node)) next.set(node, new Set()); next.get(node).add(name); };
+    if (nextSlot !== slot) {
+      const rect = nextSlot.getBoundingClientRect();
+      nextSlot.style.setProperty('--rc-slot-height', `${rect.height}px`);
+      nextSlot.style.setProperty('--rc-slot-width', `${rect.width}px`);
+    }
     for (let node = active.parentElement; node; node = node.parentElement) {
       ancestors.push(node);
       if (node === document.body) break;
     }
     const path = new Set(ancestors);
     // Preserve the video's original slot so feed scrolling still measures the real reel position.
-    slot.style.setProperty('--rc-slot-height', `${rect.height}px`);
-    slot.style.setProperty('--rc-slot-width', `${rect.width}px`);
-    slot.setAttribute('data-rc-slot', '');
-    active.setAttribute('data-rc-video', '');
-    focusMarks.add(active);
+    mark(nextSlot, 'data-rc-slot');
+    mark(active, 'data-rc-video');
     for (const node of ancestors) {
-      node.setAttribute('data-rc-path', '');
-      focusMarks.add(node);
+      mark(node, 'data-rc-path');
       for (const sibling of node.children) {
         if (path.has(sibling) || sibling === active || sibling === host) continue;
-        sibling.setAttribute('data-rc-hidden', '');
-        focusMarks.add(sibling);
+        mark(sibling, 'data-rc-hidden');
       }
     }
-    document.documentElement.classList.add('rc-focus');
+    // Diff markers in one task; never expose Instagram's normal layout between focused reels.
+    for (const [node, names] of next) for (const name of names) if (!node.hasAttribute(name)) node.setAttribute(name, '');
+    for (const [node, names] of focusMarks) for (const name of names) if (!next.get(node)?.has(name)) node.removeAttribute(name);
+    focusMarks.clear();
+    for (const entry of next) focusMarks.set(...entry);
+    if (previousSlot && previousSlot !== nextSlot) {
+      previousSlot.style.removeProperty('--rc-slot-height'); previousSlot.style.removeProperty('--rc-slot-width');
+    }
+    slot = nextSlot;
+    if (!document.documentElement.classList.contains('rc-focus')) document.documentElement.classList.add('rc-focus');
+    applyRotation();
     layout();
   }
-  function detach() {
+  function detach(keepFocus = false) {
     mediaEvents?.abort();
     mediaEvents = null;
-    clearFocus();
+    if (!keepFocus) clearFocus();
+    clearRotation(active);
+    active?.pause();
     clearTimeout(idleTimer);
     cancelAnimationFrame(progressFrame);
     progressFrame = 0;
@@ -222,28 +326,42 @@
     host.remove();
   }
   function attach(video) {
-    if (video === active) { applyFocus(); layout(); return; }
-    detach();
+    if (video === active && (!video || CONFIG.source(video) === activeSource)) { applyFocus(); layout(); return; }
+    detach(!!video && prefs.focus);
     if (!video) return;
     active = video;
+    activeSource = CONFIG.source(video);
+    rotation = 0; userPaused = autoPaused = temporarilyMuted = false;
+    lastNavigation = -Infinity;
+    ownPlay = ownSoundChange = gesture = null;
     scope = ownFullscreen?.contains(video) ? ownFullscreen : CONFIG.scope(video);
     scope.append(host);
     mediaEvents = new AbortController();
-    if (!storedPlayback) {
-      Object.assign(prefs, { volume: video.volume, muted: video.muted, speed: video.playbackRate });
-    }
-    video.volume = prefs.volume;
-    video.muted = prefs.muted;
+    const wasPlaying = !video.paused || video.autoplay;
+    applySound(false);
     video.playbackRate = prefs.speed;
     video.loop = prefs.loop;
     for (const type of ['play', 'pause', 'ended', 'loadedmetadata', 'durationchange', 'seeking', 'seeked', 'timeupdate', 'volumechange', 'ratechange']) {
       video.addEventListener(type, () => {
-        if (type === 'volumechange' || type === 'ratechange') persistPlayback();
+        if (type === 'volumechange') {
+          const ours = ownSoundChange?.video === video && performance.now() < ownSoundChange.until &&
+            video.volume === ownSoundChange.volume && video.muted === ownSoundChange.muted;
+          if (!ours && recentGesture(video) && gesture.audio) persistPlayback(true);
+          else applySound();
+        }
+        if (type === 'ratechange') { prefs.speed = video.playbackRate; save(); }
+        if (type === 'loadedmetadata') {
+          if (CONFIG.source(video) !== activeSource) { attach(video); return; }
+          applySound(); applyRotation();
+        }
+        if (type === 'pause' && !document.hidden && recentGesture(video) && !gesture.audio && !gesture.play) { userPaused = true; autoPaused = false; ownPlay = null; }
         if (type === 'play' || type === 'pause') show(); else sync();
       }, { signal: mediaEvents.signal });
     }
+    if (document.hidden) video.pause();
+    else if (wasPlaying) playVideo();
     applyFocus();
-    place();
+    layout();
     show();
   }
   function selectActive() {
@@ -266,13 +384,16 @@
       const score = area * (video === active ? CONFIG.activeBias : 1); // Small hysteresis avoids flicker at reel boundaries.
       if (score > bestScore) { best = video; bestScore = score; }
     }
+    // Keep the focus backdrop during an asynchronous reel replacement, but release it for unrelated dialogs.
+    if (!best && prefs.focus && document.documentElement.classList.contains('rc-focus') &&
+      ((!dialog && CONFIG.reelRoute.test(location.pathname)) || dialog === scope)) return;
     attach(best);
     if (!best && ownFullscreen) document.exitFullscreen?.().catch(ignore);
   }
   function discover() {
     discoveryTimer = 0;
     // pushState doesn't emit popstate. Instagram's route render produces a mutation instead.
-    if (lastHref !== location.href) { lastHref = location.href; clearFocus(); }
+    if (lastHref !== location.href) lastHref = location.href;
     for (const [video, frame] of tracked) {
       if (video.isConnected && CONFIG.eligible(video) && CONFIG.frame(video) === frame) continue;
       intersection.unobserve(frame);
@@ -286,6 +407,10 @@
       intersection.observe(frame);
     }
     selectActive();
+    if (pendingNavigation) {
+      debug('Keyboard navigation check:', active !== pendingNavigation.video || CONFIG.source(active || pendingNavigation.video) !== pendingNavigation.source || location.href !== pendingNavigation.href ? 'reel changed' : 'no change; leaving the dialog alone');
+      pendingNavigation = null;
+    }
   }
   function schedule() {
     if (!started || discoveryTimer) return;
@@ -293,7 +418,8 @@
   }
   function togglePlayback() {
     if (!active) return;
-    if (active.paused) active.play().catch(ignore); else active.pause();
+    if (active.paused) { userPaused = autoPaused = false; playVideo(true); }
+    else { userPaused = true; autoPaused = false; ownPlay = gesture = null; active.pause(); }
   }
   function seek(delta) {
     if (!active || !Number.isFinite(active.duration)) return;
@@ -325,37 +451,64 @@
     const videos = [...tracked.keys()].filter(video => region.contains(video));
     videos.sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
     const next = videos[videos.indexOf(active) + direction];
-    const pattern = direction > 0 ? CONFIG.nextLabel : CONFIG.previousLabel;
-    const native = [...CONFIG.navigationRegion(region).querySelectorAll(CONFIG.selectors.labeled)].find(node =>
-      pattern.test(node.getAttribute('aria-label').trim()) && !node.disabled &&
-      node.getAttribute('aria-disabled') !== 'true' && node.getBoundingClientRect().width > 0);
-    clearFocus();
-    if (native?.closest(CONFIG.selectors.clickable)) native.closest(CONFIG.selectors.clickable).click();
-    else if (next) CONFIG.frame(next).scrollIntoView({ block: 'center', behavior: 'instant' });
+    const labels = direction > 0 ? CONFIG.nextLabels : CONFIG.previousLabels;
+    const rect = frame.getBoundingClientRect(), centerX = (rect.left + rect.right) / 2, centerY = (rect.top + rect.bottom) / 2;
+    const candidates = [...CONFIG.navigationRegion(region).querySelectorAll(CONFIG.selectors.labeled)].map(node =>
+      ({ label: (node.getAttribute('aria-label') || node.textContent || '').trim(), button: node.closest(CONFIG.selectors.clickable) }));
+    const hasNext = candidates.some(item => matchesLabel(item.label, CONFIG.nextLabels));
+    const native = candidates.find(({ label, button }) => {
+      if (!matchesLabel(label, labels) || !button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
+      const r = button.getBoundingClientRect();
+      if (!r.width || button.closest(CONFIG.selectors.hidden)) return false;
+      const ambiguous = CONFIG.ambiguousBack.includes(label.toLowerCase());
+      if (!region.contains(button) || ambiguous) {
+        const dx = (r.left + r.right) / 2 - centerX, dy = (r.top + r.bottom) / 2 - centerY;
+        const lateral = dx * direction > 0 && Math.abs(dy) <= Math.max(80, rect.height * CONFIG.navigationVerticalTolerance);
+        const vertical = !ambiguous && dy * direction > 0 && Math.abs(dx) <= Math.max(80, rect.width * CONFIG.navigationVerticalTolerance);
+        if (!lateral && !vertical) return false;
+      }
+      return !ambiguous || hasNext;
+    });
+    if (native) { debug('Navigation: native button', native.label); native.button.click(); }
+    else if (next) { debug('Navigation: loaded reel'); CONFIG.frame(next).scrollIntoView({ block: 'center', behavior: 'instant' }); }
     else {
+      if (region.matches(CONFIG.selectors.dialogs)) {
+        debug('Navigation: no enabled, positioned dialog button matched', labels, '; trying Instagram keyboard handling');
+        pendingNavigation = { video: active, source: CONFIG.source(active), href: location.href };
+        const key = direction < 0 ? 'ArrowLeft' : 'ArrowRight';
+        forwardingNavigation = true;
+        try { for (const type of ['keydown', 'keyup']) document.dispatchEvent(new KeyboardEvent(type, { key, code: key, bubbles: true, cancelable: true })); }
+        finally { forwardingNavigation = false; }
+        schedule(); return;
+      }
       let scroller = frame.parentElement;
       while (scroller && !CONFIG.scrollable(scroller)) scroller = scroller.parentElement;
       (scroller || window).scrollBy({ top: direction * (scroller?.clientHeight || innerHeight), behavior: 'instant' });
+      debug('Navigation: feed scroll');
     }
     schedule();
     show();
   }
   function keydown(event) {
-    if (!active || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+    unlockSound(event);
+    if (forwardingNavigation || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
     const path = event.composedPath();
     if (path.some(node => node instanceof Element && (node.matches(CONFIG.selectors.typing) || node.isContentEditable))) return;
     if (event.key === ' ' && path.some(node => node instanceof Element && node.matches(CONFIG.selectors.clickable))) return;
     const key = event.key.toLowerCase();
+    if (!active && !(key === 'c' && prefs.focus)) return;
     if (key === 'escape' && document.fullscreenElement !== scope) return;
-    if (![' ', 'k', 'm', 'f', 'escape', 'c', 'l', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown', '<', '>'].includes(key)) return;
+    if (![' ', 'k', 'm', 'f', 'escape', 'c', 'l', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown', '<', '>', '[', ']', '0'].includes(key)) return;
     event.preventDefault();
     event.stopImmediatePropagation(); // Prevent Instagram from also acting on the same playback shortcut.
     if (event.repeat && !key.startsWith('arrow')) return;
     if (key === ' ' || key === 'k') togglePlayback();
-    else if (key === 'm') { active.muted = !active.muted; persistPlayback(); }
+    else if (key === 'm') { active.muted = !active.muted; persistPlayback(true); }
     else if (key === 'f' || key === 'escape') fullscreen();
     else if (key === 'c') toggleFocus();
     else if (key === 'l') { active.loop = !active.loop; persistPlayback(); }
+    else if (key === '[' || key === ']') rotate(key === '[' ? -1 : 1);
+    else if (key === '0') rotate(0);
     else if (key === 'arrowleft' || key === 'arrowright') seek(key === 'arrowleft' ? -5 : 5);
     else if (key === 'arrowup' || key === 'arrowdown') navigate(key === 'arrowup' ? -1 : 1);
     else {
@@ -369,12 +522,14 @@
   // Events originating in our controls must not become Instagram video clicks or shortcuts.
   for (const type of ['click', 'dblclick', 'pointerdown', 'pointerup', 'keydown', 'keyup']) shadow.addEventListener(type, event => event.stopPropagation());
   ui.play.addEventListener('click', togglePlayback);
-  ui.mute.addEventListener('click', () => { if (active) { active.muted = !active.muted; persistPlayback(); show(); } });
+  ui.mute.addEventListener('click', () => { if (active) { active.muted = !active.muted; persistPlayback(true); show(); } });
   ui.fullscreen.addEventListener('click', fullscreen);
+  ui.rotateLeft.addEventListener('click', () => rotate(-1));
+  ui.rotateRight.addEventListener('click', () => rotate(1));
   ui.focus.addEventListener('click', toggleFocus);
   ui.loop.addEventListener('click', () => { if (active) { active.loop = !active.loop; persistPlayback(); show(); } });
   ui.speed.addEventListener('change', () => { if (active) { active.playbackRate = Number(ui.speed.value); persistPlayback(); show(); } });
-  ui.volume.addEventListener('input', () => { if (active) { active.volume = Number(ui.volume.value); active.muted = active.volume === 0; persistPlayback(); show(); } });
+  ui.volume.addEventListener('input', () => { if (active) { active.volume = Number(ui.volume.value); active.muted = active.volume === 0; persistPlayback(true); show(); } });
   ui.seek.addEventListener('input', () => {
     if (!active || !Number.isFinite(active.duration)) return;
     try { active.currentTime = clamp(Number(ui.seek.value), 0, active.duration); } catch { /* Media may be replaced during a drag. */ }
@@ -399,21 +554,25 @@
     });
     mutation.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'role', 'src'] });
     on(document, 'keydown', keydown, { capture: true });
+    on(document, 'pointerdown', rememberGesture, { capture: true, passive: true });
+    on(document, 'click', rememberGesture, { capture: true, passive: true });
+    on(document, 'play', guardPlayback, { capture: true });
+    on(document, 'playing', guardPlayback, { capture: true });
     on(document, 'pointermove', event => {
       if (bounds && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom) show();
     }, { passive: true });
     on(document, 'scroll', () => { layout(); schedule(); }, { capture: true, passive: true });
-    on(window, 'resize', () => { layout(); schedule(); }, { passive: true });
+    on(window, 'resize', () => { applyRotation(); layout(); schedule(); }, { passive: true });
     on(window, 'popstate', schedule);
     on(window, 'hashchange', schedule);
-    on(document, 'visibilitychange', () => { if (document.hidden) cancelAnimationFrame(progressFrame); else { schedule(); show(); } });
+    on(document, 'visibilitychange', visibilityChanged);
     on(document, 'fullscreenchange', () => {
       // An earlier exit event can arrive while a new gesture's fullscreen request is pending.
       if (ownFullscreen && !pendingFullscreen && document.fullscreenElement !== ownFullscreen) {
         ownFullscreen.removeAttribute('data-rc-fullscreen');
         ownFullscreen = null;
       }
-      layout(); schedule(); show();
+      applyRotation(); schedule(); show();
     });
     discover();
   }
@@ -444,7 +603,6 @@
         if (Number.isFinite(saved.volume) && saved.volume >= 0 && saved.volume <= 1) prefs.volume = saved.volume;
         if (CONFIG.speeds.includes(saved.speed)) prefs.speed = saved.speed;
         for (const key of ['muted', 'loop', 'focus']) if (typeof saved[key] === 'boolean') prefs[key] = saved[key];
-        storedPlayback = true;
       }
       start();
     });
