@@ -4,13 +4,13 @@
 
 **Better playback controls and distraction-free viewing for Instagram Reels.**
 
-[![Latest release](https://img.shields.io/github/v/release/PranavP2207/Instagram-Reel-Tool-extension)](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/latest)
-[![Release workflow](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/actions/workflows/release.yml/badge.svg)](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/PranavP2207/Reel-Focus)](https://github.com/PranavP2207/Reel-Focus/releases/latest)
+[![Release workflow](https://github.com/PranavP2207/Reel-Focus/actions/workflows/release.yml/badge.svg)](https://github.com/PranavP2207/Reel-Focus/actions/workflows/release.yml)
 ![Manifest V3](https://img.shields.io/badge/manifest-v3-8b5cf6)
 
 Reel Focus adds seeking, volume, playback speed, looping, fullscreen, and a distraction-free focus mode to Instagram's Reels feed, direct reel pages, and video dialogs opened from Saved. Everything runs locally in the page with vanilla JavaScript and CSS.
 
-**[Download v1.1.1](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.1/reel-focus-1.1.1.zip)** · [Release notes](RELEASE.md) · [Report a bug](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new) · [Request a feature](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new)
+**[Download v1.1.1](https://github.com/PranavP2207/Reel-Focus/releases/download/v1.1.1/reel-focus-1.1.1.zip)** · [Release notes](RELEASE.md) · [Report a bug](https://github.com/PranavP2207/Reel-Focus/issues/new) · [Request a feature](https://github.com/PranavP2207/Reel-Focus/issues/new)
 
 No build step, runtime dependencies, background service worker, tracking, or video downloading. Desktop Chrome, Edge, Brave, Opera, and Vivaldi are the target browsers.
 
@@ -55,10 +55,11 @@ The overlay adapts to portrait reels with a two-row layout that keeps every cont
 
 No Node.js, npm, or build tools are needed to use the extension.
 
-1. [Download the installable v1.1.1 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.1/reel-focus-1.1.1.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
+1. [Download the installable v1.1.1 ZIP](https://github.com/PranavP2207/Reel-Focus/releases/download/v1.1.1/reel-focus-1.1.1.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
 
    ```sh
-   git clone https://github.com/PranavP2207/Instagram-Reel-Tool-extension.git
+   git clone https://github.com/PranavP2207/Reel-Focus.git
+   cd Reel-Focus
    ```
 
 2. Open your browser's extensions manager:
@@ -174,7 +175,7 @@ The browser checks cover playback, seeking, settings, user-vs-automatic tab paus
 <summary>Project structure</summary>
 
 ```text
-Instagram-Reel-Tool-extension/
+Reel-Focus/
 ├── .github/workflows/release.yml # Publishes complete GitHub releases
 ├── manifest.json
 ├── content.js              # Page adapter, isolated controls, playback and lifecycle
@@ -225,7 +226,7 @@ The controls live in a Shadow DOM. Focus uses removable `data-rc-*` attributes a
 <details>
 <summary>Publishing releases</summary>
 
-`.github/workflows/release.yml` publishes a GitHub release for an existing version tag. It runs when a `v*` tag is pushed, when the workflow or `RELEASE.md` changes on `main`, or through **Actions → Publish extension release → Run workflow**.
+`.github/workflows/release.yml` publishes a GitHub release for an existing version tag. It runs when a `v*` tag is pushed or through **Actions → Publish extension release → Run workflow**.
 
 The workflow checks the tagged ZIP against its SHA-256 file and tagged source, confirms the manifest and release-note versions match, and attaches the installable ZIP, checksum, and complete `RELEASE.md` to the release. It uses GitHub's repository-scoped `GITHUB_TOKEN` with `contents: write`; no personal token or extra repository secret is needed. Existing tags are preserved.
 
@@ -237,7 +238,7 @@ For a future version, update the manifest and release notes, commit the matching
 
 Bug reports, documentation improvements, layout fixes, translations of navigation labels, and manual browser verification are welcome.
 
-1. Check [existing issues](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues) before reporting a problem or proposing a change.
+1. Check [existing issues](https://github.com/PranavP2207/Reel-Focus/issues) before reporting a problem or proposing a change.
 2. For substantial changes, open an issue describing the problem and proposed behavior first.
 3. Fork the repository and create a branch for your change. Keep the change focused and put Instagram selectors/heuristics in `CONFIG`.
 4. Run the syntax checks and relevant browser checks above. For playback or layout changes, manually check the feed, a direct reel, and a Saved dialog; include typing, focus restoration, and fullscreen navigation.
@@ -247,16 +248,16 @@ Preserve the project's scope: playback controls and reversible UI changes, stora
 
 ## Support and maintainer
 
-Maintained in the [PranavP2207/Instagram-Reel-Tool-extension](https://github.com/PranavP2207/Instagram-Reel-Tool-extension) repository by [@PranavP2207](https://github.com/PranavP2207).
+Maintained in the [Reel Focus](https://github.com/PranavP2207/Reel-Focus) repository by [@PranavP2207](https://github.com/PranavP2207).
 
-For help, [open an issue](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new) with:
+For help, [open an issue](https://github.com/PranavP2207/Reel-Focus/issues/new) with:
 
 - Your browser and version, operating system, and extension version.
 - The affected view: Reels feed, direct reel, or Saved dialog.
 - Steps to reproduce, expected behavior, and what happened instead.
 - A screenshot or recording when useful, with private information removed.
 
-For downloads and changes, see [GitHub Releases](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases) and [RELEASE.md](RELEASE.md). Installation and usage do not require a GitHub account.
+For downloads and changes, see [GitHub Releases](https://github.com/PranavP2207/Reel-Focus/releases) and [RELEASE.md](RELEASE.md). Installation and usage do not require a GitHub account.
 
 ## License
 

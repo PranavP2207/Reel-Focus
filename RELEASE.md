@@ -100,4 +100,4 @@ On Linux/macOS with `sha256sum` available, place the ZIP and checksum file toget
 sha256sum --check reel-focus-1.1.1.zip.sha256
 ```
 
-Report issues at [PranavP2207/Instagram-Reel-Tool-extension](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues), including browser/version, the affected view, and reproduction steps.
+Report issues at [Reel Focus](https://github.com/PranavP2207/Reel-Focus/issues), including browser/version, the affected view, and reproduction steps.

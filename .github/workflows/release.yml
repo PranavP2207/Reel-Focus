@@ -2,11 +2,7 @@ name: Publish extension release
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
-    paths:
-      - '.github/workflows/release.yml'
-      - 'RELEASE.md'
   workflow_dispatch:
     inputs:
       tag:
