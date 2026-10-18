@@ -1,0 +1,46 @@
+/* Only our explicitly marked elements change. Visibility preserves feed geometry. */
+html.rc-focus [data-rc-hidden],
+html.rc-focus [data-rc-hidden] * {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html.rc-focus [data-rc-path] {
+  transform: none !important;
+  translate: none !important;
+  rotate: none !important;
+  scale: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  perspective: none !important;
+  contain: none !important;
+  content-visibility: visible !important;
+  will-change: auto !important;
+  clip-path: none !important;
+  isolation: auto !important;
+  z-index: auto !important;
+}
+html.rc-focus [data-rc-slot] {
+  min-height: var(--rc-slot-height) !important;
+  min-width: var(--rc-slot-width) !important;
+}
+html.rc-focus video[data-rc-video] {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  transform: none !important;
+  object-fit: contain !important;
+  background: #09090e !important;
+  visibility: visible !important;
+  z-index: 2147483645 !important;
+}
+[data-rc-fullscreen]:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  background: #09090e !important;
+}
