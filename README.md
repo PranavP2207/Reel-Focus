@@ -8,7 +8,7 @@ A small Manifest V3 extension for desktop Chrome, Edge, Brave, Opera, and Vivald
 
 Vanilla JavaScript and CSS. No dependencies, build step, background worker, account setup, analytics, network requests, downloads, or remote code. The only permission is `storage`; the content script runs only on `https://www.instagram.com/*`.
 
-**[Download Reel Focus v1.0.0](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/raw/refs/tags/v1.0.0/packages/reel-focus-1.0.0.zip)** · [SHA-256 checksum](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/blob/v1.0.0/packages/reel-focus-1.0.0.zip.sha256)
+**[Download Reel Focus v1.0.0](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.0.0/reel-focus-1.0.0.zip)** · [Release notes](RELEASE.md) · [All releases](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases)
 
 ## Features
 
@@ -34,7 +34,7 @@ The overlay adapts to portrait reels with a two-row layout that keeps every cont
 
 No Node.js, npm, or build tools are needed to use the extension.
 
-1. [Download the installable v1.0.0 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/raw/refs/tags/v1.0.0/packages/reel-focus-1.0.0.zip) and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
+1. [Download the installable v1.0.0 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.0.0/reel-focus-1.0.0.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
 
    ```sh
    git clone https://github.com/PranavP2207/Instagram-Reel-Tool-extension.git
@@ -111,6 +111,7 @@ The controls live in a Shadow DOM. Focus uses removable `data-rc-*` attributes a
 
 ```text
 Instagram-Reel-Tool-extension/
+├── .github/workflows/release.yml # Publishes complete GitHub releases
 ├── manifest.json
 ├── content.js              # Page adapter, isolated controls, playback and lifecycle
 ├── content.css             # Reversible focus/fullscreen rules
@@ -120,6 +121,7 @@ Instagram-Reel-Tool-extension/
 │   ├── icon48.png
 │   └── icon128.png
 ├── README.md
+├── RELEASE.md              # Complete versioned release notes
 ├── docs/
 │   └── preview.png         # Screenshot of the generated offline fixture
 ├── packages/
@@ -171,6 +173,14 @@ The browser checks cover playback, seeking, settings, typing guards, event isola
 - Focus hides Instagram's close/comment/share UI along with the comments; press C to restore it. While a reel is focused, wheel scrolling over the fixed video can be intercepted by Instagram; Up/Down provides explicit navigation.
 - Live streams or media with no finite duration cannot be sought. Instagram may reset playback properties when replacing its player. Browser autoplay policy can still require a Play click. Failed playback/fullscreen requests are ignored safely.
 - Desktop Chromium browsers are targeted. Safari, Firefox, mobile browsers without desktop extension support, and Instagram's native apps are outside scope. Fixture testing uses Chromium; other browsers have not been manually verified.
+
+## Publishing releases
+
+`.github/workflows/release.yml` publishes a GitHub release for an existing version tag. It runs when a `v*` tag is pushed, when the workflow or `RELEASE.md` changes on `main`, or through **Actions → Publish extension release → Run workflow**.
+
+The workflow checks the tagged ZIP against its SHA-256 file and tagged source, confirms the manifest and release-note versions match, and attaches the installable ZIP, checksum, and complete `RELEASE.md` to the release. It uses GitHub's repository-scoped `GITHUB_TOKEN` with `contents: write`; no personal token or extra repository secret is needed. Existing tags are preserved.
+
+For a future version, update the manifest and release notes, commit the matching versioned ZIP/checksum under `packages/`, then create and push the corresponding `vX.Y.Z` tag. The ZIP must contain the source files from that tag. Never replace the files or move the tag for an already published version.
 
 ## Reporting a problem
 

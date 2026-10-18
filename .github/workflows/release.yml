@@ -1,0 +1,124 @@
+name: Publish extension release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - '.github/workflows/release.yml'
+      - 'RELEASE.md'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-extension-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out source and existing tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve existing version tag
+        id: version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          EVENT_REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_REF" == refs/tags/* ]]; then
+            release_tag="${EVENT_REF#refs/tags/}"
+          elif [[ -n "$INPUT_TAG" ]]; then
+            release_tag="$INPUT_TAG"
+          else
+            release_tag="v$(python3 -c 'import json; print(json.load(open("manifest.json"))["version"])')"
+          fi
+          [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git rev-parse --verify "refs/tags/$release_tag^{commit}"
+          printf 'tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Validate and stage release files from the immutable tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, io, json, os, subprocess, zipfile
+          from pathlib import Path
+
+          tag = os.environ['RELEASE_TAG']
+          version = tag.removeprefix('v')
+          output = Path('dist')
+          output.mkdir(exist_ok=True)
+          def tagged(path):
+              return subprocess.check_output(['git', 'show', f'{tag}:{path}'])
+          filename = f'reel-focus-{version}.zip'
+          package = tagged(f'packages/{filename}')
+          checksum = tagged(f'packages/{filename}.sha256')
+          expected, named = checksum.decode().strip().split()
+          assert named == filename, 'Checksum refers to another file'
+          assert hashlib.sha256(package).hexdigest() == expected, 'ZIP checksum mismatch'
+          with zipfile.ZipFile(io.BytesIO(package)) as archive:
+              assert archive.testzip() is None, 'Corrupt ZIP'
+              manifest = json.loads(archive.read('manifest.json'))
+              assert manifest['version'] == version, 'Tag/manifest version mismatch'
+              assert manifest['permissions'] == ['storage'], 'Unexpected permissions'
+              for name in archive.namelist():
+                  assert not name.startswith('/') and '..' not in Path(name).parts
+                  assert archive.read(name) == tagged(name), f'ZIP differs from tag: {name}'
+          notes = Path('RELEASE.md').read_bytes()
+          assert notes.startswith(f'# Reel Focus v{version}\n'.encode()), 'Release notes version mismatch'
+          (output / filename).write_bytes(package)
+          (output / f'{filename}.sha256').write_bytes(checksum)
+          (output / 'RELEASE.md').write_bytes(notes)
+          print(f'Validated {filename}: {len(package)} bytes; SHA-256 {expected}')
+          PY
+
+      - name: Publish GitHub release with ZIP, checksum, and complete notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          if ! gh release view "$RELEASE_TAG" --json tagName > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "Reel Focus v$version" --notes-file dist/RELEASE.md
+          fi
+          gh release upload "$RELEASE_TAG" \
+            "dist/reel-focus-$version.zip" \
+            "dist/reel-focus-$version.zip.sha256" \
+            dist/RELEASE.md --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest \
+            --title "Reel Focus v$version" --notes-file dist/RELEASE.md
+          gh release view "$RELEASE_TAG" --json url,isDraft,assets > dist/published-release.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          release = json.loads(Path('dist/published-release.json').read_text())
+          version = os.environ['RELEASE_TAG'].removeprefix('v')
+          required = {f'reel-focus-{version}.zip', f'reel-focus-{version}.zip.sha256', 'RELEASE.md'}
+          assert not release['isDraft'], 'Release is still a draft'
+          assert required <= {asset['name'] for asset in release['assets']}, 'Release assets are missing'
+          print(release['url'])
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(f"Published [{os.environ['RELEASE_TAG']}]({release['url']}) with ZIP, checksum, and complete release notes.\n")
+          PY
