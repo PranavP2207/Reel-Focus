@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Reel Focus — Playback Controls",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Quiet, local playback controls and distraction-free focus mode for Instagram Reels.",
   "permissions": ["storage"],
   "icons": {

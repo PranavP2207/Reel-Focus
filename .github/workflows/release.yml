@@ -12,7 +12,7 @@ on:
       tag:
         description: Existing version tag to publish
         required: true
-        default: v1.1.0
+        default: v1.1.1
 
 permissions:
   contents: write

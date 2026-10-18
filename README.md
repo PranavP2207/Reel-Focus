@@ -10,7 +10,7 @@
 
 Reel Focus adds seeking, volume, playback speed, looping, fullscreen, and a distraction-free focus mode to Instagram's Reels feed, direct reel pages, and video dialogs opened from Saved. Everything runs locally in the page with vanilla JavaScript and CSS.
 
-**[Download v1.1.0](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.0/reel-focus-1.1.0.zip)** · [Release notes](RELEASE.md) · [Report a bug](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new) · [Request a feature](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new)
+**[Download v1.1.1](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.1/reel-focus-1.1.1.zip)** · [Release notes](RELEASE.md) · [Report a bug](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new) · [Request a feature](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/issues/new)
 
 No build step, runtime dependencies, background service worker, tracking, or video downloading. Desktop Chrome, Edge, Brave, Opera, and Vivaldi are the target browsers.
 
@@ -55,7 +55,7 @@ The overlay adapts to portrait reels with a two-row layout that keeps every cont
 
 No Node.js, npm, or build tools are needed to use the extension.
 
-1. [Download the installable v1.1.0 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.0/reel-focus-1.1.0.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
+1. [Download the installable v1.1.1 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/releases/download/v1.1.1/reel-focus-1.1.1.zip) from the release's **Assets** and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
 
    ```sh
    git clone https://github.com/PranavP2207/Instagram-Reel-Tool-extension.git
@@ -189,8 +189,8 @@ Instagram-Reel-Tool-extension/
 ├── docs/
 │   └── preview.png         # Screenshot of the generated offline fixture
 ├── packages/
-│   ├── reel-focus-1.1.0.zip
-│   └── reel-focus-1.1.0.zip.sha256
+│   ├── reel-focus-1.1.1.zip
+│   └── reel-focus-1.1.1.zip.sha256
 └── tests/                  # Development only
     ├── browser.cjs
     └── fixture.webm        # Generated solid-color test video
