@@ -312,6 +312,136 @@ ${[1, 2, 3].map(n => `<article><div class="media"><video id="reel${n}" src="/fix
     await wait(() => !document.querySelector('[data-rc-host]').shadowRoot.getElementById('bar').classList.contains('idle'));
     console.log(`PASS ${nativeExtension ? 'chrome.storage' : 'storage-adapter'} persistence, focus restoration, auto-hide`);
 
+    async function checkManualHide() {
+      const hidden = () => controls.locator('#bar').evaluate(bar => bar.classList.contains('manual-hidden') && bar.inert && getComputedStyle(bar).pointerEvents === 'none');
+      const assertHidden = async () => {
+        assert.equal(await hidden(), true, 'Manual hiding must survive automatic show requests');
+        assert.equal(await controls.locator('#reveal').isVisible(), true);
+      };
+      assert.equal(await controls.locator('#hide').getAttribute('aria-label'), 'Hide controls (H)');
+      await controls.locator('#hide').click();
+      await assertHidden(); // Immediate: no idle timeout is needed to enter this state.
+      await page.mouse.move(580, 250);
+      await controls.locator('#mute').evaluate(button => button.focus());
+      assert.equal(await controls.locator('#mute').evaluate(button => button.getRootNode().activeElement === button), false, 'Hidden panel must be inert');
+      await controls.locator('#bar').dispatchEvent('focusin');
+      await controls.locator('#reveal').focus();
+      await assertHidden();
+      await page.locator('#typing').focus();
+      await page.keyboard.press('h');
+      await assertHidden();
+      await page.locator('#editor1').focus();
+      await page.keyboard.press('h');
+      await assertHidden();
+      await page.evaluate(() => {
+        const textarea = document.createElement('textarea'); textarea.id = 'hideTyping'; document.body.append(textarea); textarea.focus();
+      });
+      await page.keyboard.press('h');
+      await assertHidden();
+      await page.evaluate(() => document.getElementById('hideTyping').remove());
+      await page.mouse.move(640, 889); // A stationary pointer over the handle must still allow dimming.
+      await visibility(true); await visibility(false);
+      await wait(() => document.querySelector('[data-rc-host]').shadowRoot.getElementById('reveal').classList.contains('dim'));
+      await wait(() => Number(getComputedStyle(document.querySelector('[data-rc-host]').shadowRoot.getElementById('reveal')).opacity) <= 0.21);
+      await assertHidden();
+      await page.mouse.move(640, 821); // 79px from the bottom, outside the handle itself.
+      await wait(() => getComputedStyle(document.querySelector('[data-rc-host]').shadowRoot.getElementById('reveal')).opacity === '1');
+      await assertHidden();
+      assert.deepEqual(await controls.locator('#reveal').evaluate(button => {
+        const r = button.getBoundingClientRect(); return [r.width, r.height, r.left + r.width / 2, innerHeight - r.bottom];
+      }), [36, 14, 640, 4]);
+
+      // Native video clicks pass through the viewport-sized, non-interactive host.
+      const frozenSeek = await controls.locator('#seek').inputValue();
+      const frozenTime = await controls.locator('#time').textContent();
+      await page.evaluate(() => {
+        const video = document.getElementById('reel1');
+        window.hiddenVideoClick = () => { if (video.paused) video.play().catch(() => {}); else video.pause(); };
+        video.addEventListener('click', hiddenVideoClick);
+      });
+      await page.locator('#reel1').click({ position: { x: 20, y: 20 } });
+      await wait(() => !document.getElementById('reel1').paused && document.getElementById('reel1').currentTime > 0.3);
+      await assertHidden();
+      assert.equal(await controls.locator('#seek').inputValue(), frozenSeek, 'Hidden seek slider must stop updating');
+      assert.equal(await controls.locator('#time').textContent(), frozenTime, 'Hidden time label must stop updating');
+      assert.equal(await controls.locator('#progress').evaluate(line => Number(line.style.transform.match(/scaleX\(([^)]+)\)/)[1]) > 0), true);
+      assert.equal(await controls.locator('#progress').evaluate(line => getComputedStyle(line).pointerEvents), 'none');
+      assert.equal(await controls.locator('#progress').evaluate(line => getComputedStyle(line.parentElement).pointerEvents), 'none');
+      assert.equal(await page.evaluate(() => document.elementFromPoint(500, innerHeight - 1)?.hasAttribute('data-rc-host')), false, 'Progress line must not intercept clicks');
+      await page.locator('#reel1').click({ position: { x: 20, y: 20 } });
+      await wait(() => document.getElementById('reel1').paused);
+      await page.evaluate(() => document.getElementById('reel1').removeEventListener('click', hiddenVideoClick));
+
+      await controls.locator('#reveal').click();
+      assert.equal(await hidden(), false);
+      assert.equal(await controls.locator('#reveal').isVisible(), false);
+      await page.keyboard.press('h');
+      await assertHidden();
+      await page.keyboard.press('H');
+      assert.equal(await hidden(), false, 'H must reveal as well as hide');
+      await page.keyboard.press('h');
+
+      await page.keyboard.press('k');
+      await wait(() => !document.getElementById('reel1').paused);
+      await page.keyboard.press('Space');
+      await wait(() => document.getElementById('reel1').paused);
+      await page.keyboard.press('m');
+      await wait(() => document.getElementById('reel1').muted);
+      await page.keyboard.press('m');
+      await page.keyboard.press('l');
+      await wait(() => document.getElementById('reel1').loop);
+      await page.keyboard.press('l');
+      await page.keyboard.press('>');
+      await wait(() => document.getElementById('reel1').playbackRate === 2);
+      await page.keyboard.press('<');
+      await wait(() => document.getElementById('reel1').playbackRate === 1.5);
+      await page.keyboard.press('ArrowRight');
+      await wait(() => document.getElementById('reel1').currentTime >= 5);
+      await page.keyboard.press('ArrowLeft');
+      await wait(() => document.getElementById('reel1').currentTime < 1);
+      await page.keyboard.press('[');
+      await wait(() => document.getElementById('reel1').style.getPropertyValue('--rc-angle') === '270deg');
+      await page.keyboard.press(']');
+      await wait(() => document.getElementById('reel1').style.getPropertyValue('--rc-angle') === '0deg');
+      await page.keyboard.press(']');
+      await page.keyboard.press('0');
+      await wait(() => document.getElementById('reel1').style.getPropertyValue('--rc-angle') === '0deg');
+      await page.keyboard.press('c');
+      await wait(() => document.documentElement.classList.contains('rc-focus'));
+      await page.keyboard.press(']');
+      await wait(() => document.getElementById('reel1').style.getPropertyValue('--rc-angle') === '90deg');
+      await assertHidden();
+      await page.keyboard.press('f');
+      await wait(() => document.fullscreenElement?.id === 'feed');
+      assert.equal(await controls.locator('#reveal').evaluate(button => document.fullscreenElement.contains(button.getRootNode().host)), true, 'Handle must share the fullscreen wrapper');
+      await assertHidden();
+      if (process.env.HIDDEN_SCREENSHOT_PATH) await page.screenshot({ path: process.env.HIDDEN_SCREENSHOT_PATH });
+      await controls.locator('#reveal').click();
+      assert.equal(await hidden(), false, 'Handle must reveal in fullscreen');
+      await page.keyboard.press('h');
+      await page.keyboard.press('h');
+      assert.equal(await hidden(), false, 'H must reveal in fullscreen');
+      await page.keyboard.press('h');
+      await page.keyboard.press('ArrowDown');
+      await wait(() => document.querySelector('video[data-rc-video]')?.id === 'reel2');
+      await assertHidden();
+      await page.keyboard.press('ArrowUp');
+      await wait(() => document.querySelector('video[data-rc-video]')?.id === 'reel1');
+      await assertHidden();
+      await page.keyboard.press('f');
+      await wait(() => !document.fullscreenElement);
+      await page.keyboard.press('c');
+      await wait(() => !document.documentElement.classList.contains('rc-focus'));
+      await assertHidden();
+
+      await page.reload();
+      await ready();
+      assert.equal(await hidden(), false, 'Reload must reset manualHidden');
+      assert.equal(await controls.locator('#reveal').isVisible(), false);
+      console.log('PASS sticky hide blocks mouse/focus/idle/playback auto-show, typing guards, handle fade/placement, progress-only updates, video clicks, handle/H reveal, hidden shortcuts, rotated focus/fullscreen, reel changes, reload reset');
+    }
+    await checkManualHide();
+
     await page.evaluate(() => {
       history.pushState({}, '', '/tester/saved/all-posts/');
       const backdrop = document.createElement('div');
@@ -349,11 +479,14 @@ ${[1, 2, 3].map(n => `<article><div class="media"><video id="reel${n}" src="/fix
     });
     await controls.locator('#fullscreen').click();
     await wait(() => document.fullscreenElement?.getAttribute('role') === 'dialog');
+    await page.keyboard.press('h');
     await page.keyboard.press('ArrowDown');
     await wait(() => document.getElementById('nextSavedReel'));
     await wait(() => document.querySelector('video[data-rc-video]')?.id === 'nextSavedReel');
+    assert.equal(await controls.locator('#bar').evaluate(bar => bar.inert && bar.classList.contains('manual-hidden')), true, 'Async Saved replacement must preserve manualHidden');
     await page.keyboard.press('ArrowUp');
     await wait(() => document.querySelector('video[data-rc-video]')?.id === 'savedReel');
+    await page.keyboard.press('h');
     assert.equal(await page.evaluate(() => savedNativeBackCalls), 1, 'SVG-title previous button must be used');
     assert.equal(await page.evaluate(() => savedKeyboardBackCalls), 0);
     await page.waitForTimeout(350);

@@ -29,7 +29,7 @@
     eligible(video) { return this.reelRoute.test(location.pathname) || !!video.closest(this.selectors.dialogs); },
     speeds: [0.5, 1, 1.25, 1.5, 2], discoveryDelay: 90, idleDelay: 2500,
     navigationDelay: 300, minArea: 400, minVisibleRatio: 0.08, activeBias: 1.03, maxBarWidth: 600,
-    compactWidth: 440, barHeight: 128, compactBarHeight: 162,
+    compactWidth: 440, barHeight: 128, compactBarHeight: 162, revealZone: 80,
     gestureDelay: 750, ownChangeDelay: 250, navigationVerticalTolerance: 0.4,
     storageKey: 'reelFocusPreferences'
   };
@@ -42,7 +42,9 @@
     expand: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
     collapse: '<path d="M3 8h5V3m13 5h-5V3M8 21v-5H3m13 5v-5h5"/>',
     rotateLeft: '<path d="M3 9V3m0 6h6M3 9a9 9 0 1 1 1 9"/>',
-    rotateRight: '<path d="M21 9V3m0 6h-6m6 0a9 9 0 1 0-1 9"/>'
+    rotateRight: '<path d="M21 9V3m0 6h-6m6 0a9 9 0 1 0-1 9"/>',
+    hide: '<path d="m6 5 6 6 6-6M6 13l6 6 6-6"/>',
+    reveal: '<path d="m6 15 6-6 6 6"/>'
   };
   const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
   const button = (id, label, icon, toggle = false) => `<button id="${id}" type="button" aria-label="${label}" title="${label}" ${toggle ? 'aria-pressed="false"' : ''}>${svg(icon)}</button>`;
@@ -52,13 +54,15 @@
   shadow.innerHTML = `
     <style>
       :host{all:initial!important;position:fixed!important;z-index:2147483647!important;display:block!important;
-        left:var(--rc-left,0px)!important;top:var(--rc-top,0px)!important;width:var(--rc-width,0px)!important;
+        inset:0!important;width:100%!important;height:100%!important;
         pointer-events:none!important;color-scheme:dark!important;contain:layout style!important}
       *{box-sizing:border-box} [hidden]{display:none!important}
-      .bar{font:12px/1.4 system-ui,sans-serif;color:#f5f4fc;background:linear-gradient(135deg,#22212beb,#111117f5);
+      .bar{position:absolute;left:var(--rc-left,0px);top:var(--rc-top,0px);width:var(--rc-width,0px);
+        font:12px/1.4 system-ui,sans-serif;color:#f5f4fc;background:linear-gradient(135deg,#22212beb,#111117f5);
         border:1px solid #ffffff26;border-radius:16px;padding:12px;box-shadow:0 8px 32px #0006;
-        pointer-events:auto;opacity:1;transition:opacity .18s;backdrop-filter:blur(16px)}
-      .bar.idle{opacity:0;pointer-events:none} .top,.row{display:flex;align-items:center;gap:8px}
+        pointer-events:auto;opacity:1;transition:opacity .15s,transform .15s;backdrop-filter:blur(16px)}
+      .bar.idle,.bar.manual-hidden{opacity:0;pointer-events:none}
+      .bar.manual-hidden{transform:translateY(12px)} .top,.row{display:flex;align-items:center;gap:8px}
       .top{justify-content:space-between;margin-bottom:6px;color:#c7c3d8;font-size:10px;letter-spacing:1.5px}
       .brand{font-weight:700}.dot{color:#b6a0ff;margin-right:5px}.hint{letter-spacing:.2px;color:#b0aabc}
       .tools{display:flex;gap:4px}.tools button{height:28px;width:28px;padding:5px}
@@ -66,6 +70,12 @@
       button{width:32px;padding:7px;cursor:pointer;flex-shrink:0} button:hover,select:hover{background:#ffffff18}
       button[aria-pressed=true]{color:#c3b0ff;background:#b6a0ff20} svg{display:block;width:18px;height:18px}
       button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #c3b0ff;outline-offset:2px}
+      #reveal{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:36px;height:14px;
+        padding:0;display:flex;align-items:center;justify-content:center;border:1px solid #ffffff40;
+        border-radius:7px;background:#22212ba6;color:#f5f4fc;pointer-events:auto;opacity:1;transition:opacity .15s}
+      #reveal svg{width:12px;height:12px} #reveal.dim{opacity:.2}
+      .progress{position:absolute;inset:auto 0 0;height:2px;background:#ffffff18;pointer-events:none}
+      #progress{width:100%;height:100%;background:#b6a0ff;transform:scaleX(0);transform-origin:left;pointer-events:none}
       input[type=range]{accent-color:#b6a0ff;cursor:pointer;min-width:0;margin:0;height:18px}
       #seek{display:block;width:100%;margin:0 0 6px} #volume{width:64px;flex-shrink:1}
       #time{font-variant-numeric:tabular-nums;white-space:nowrap;color:#d6d2e3;font-size:11px}
@@ -76,10 +86,10 @@
       .compact #mute{grid-area:1/4}.compact #volume{grid-area:1/5/2/7;width:100%}
       .compact #speed{grid-area:2/1/3/4}.compact #loop{grid-area:2/4}
       .compact #focus{grid-area:2/5;justify-self:center}.compact #fullscreen{grid-area:2/6}
-      @media(prefers-reduced-motion:reduce){.bar{transition:none}}
+      @media(prefers-reduced-motion:reduce){.bar,#reveal{transition:none}}
     </style>
     <section id="bar" class="bar" aria-label="Reel playback controls">
-      <div class="top"><span class="brand"><span class="dot">●</span>REEL FOCUS</span><span class="hint">↑ ↓ reels · C focus</span><span class="tools">${button('rotateLeft', 'Rotate left 90° ([)', 'rotateLeft')}${button('rotateRight', 'Rotate right 90° (])', 'rotateRight')}</span></div>
+      <div class="top"><span class="brand"><span class="dot">●</span>REEL FOCUS</span><span class="hint">↑ ↓ reels · C focus</span><span class="tools">${button('rotateLeft', 'Rotate left 90° ([)', 'rotateLeft')}${button('rotateRight', 'Rotate right 90° (])', 'rotateRight')}${button('hide', 'Hide controls (H)', 'hide')}</span></div>
       <input id="seek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Seek reel" disabled>
       <div class="row">
         ${button('play', 'Play (Space / K)', 'play')}
@@ -91,14 +101,16 @@
         ${button('focus', 'Focus: hide comments (C)', 'focus', true)}
         ${button('fullscreen', 'Fullscreen (F)', 'expand')}
       </div>
-    </section>`;
-  const ui = Object.fromEntries(['bar', 'play', 'mute', 'seek', 'time', 'volume', 'speed', 'loop', 'focus', 'fullscreen', 'rotateLeft', 'rotateRight'].map(id => [id, shadow.getElementById(id)]));
+    </section>
+    <div class="progress" aria-hidden="true"><div id="progress"></div></div>
+    <button id="reveal" type="button" aria-label="Show controls (H)" title="Show controls (H)" hidden>${svg('reveal')}</button>`;
+  const ui = Object.fromEntries(['bar', 'play', 'mute', 'seek', 'time', 'volume', 'speed', 'loop', 'focus', 'fullscreen', 'rotateLeft', 'rotateRight', 'hide', 'reveal', 'progress'].map(id => [id, shadow.getElementById(id)]));
   let prefs = { volume: 1, muted: false, speed: 1, loop: true, focus: false };
   let active = null, scope = null, mediaEvents = null, events = null;
-  let mutation = null, intersection = null, discoveryTimer = 0, saveTimer = 0, idleTimer = 0;
+  let mutation = null, intersection = null, discoveryTimer = 0, saveTimer = 0, idleTimer = 0, revealTimer = 0;
   let progressFrame = 0, layoutFrame = 0, visible = false, hovering = false, started = false;
   let lastHref = location.href, lastNavigation = 0, ownFullscreen = null, pendingFullscreen = null, slot = null;
-  let bounds = null;
+  let bounds = null, manualHidden = false;
   let userPaused = false, autoPaused = false, gesture = null, rotation = 0, activeSource = '';
   let ownSoundChange = null, ownPlay = null, temporarilyMuted = false, forwardingNavigation = false, pendingNavigation = null;
   const tracked = new Map(), intersections = new Map(), focusMarks = new Map();
@@ -182,7 +194,7 @@
       if (userPaused) active?.pause();
       else if (autoPaused) playVideo();
       autoPaused = false;
-      schedule(); show();
+      schedule(); show(); progress();
     }
   }
   function clearRotation(video) {
@@ -204,7 +216,8 @@
     }
   }
   function sync() {
-    if (!active || !visible) return;
+    if (!active) return;
+    if (!visible) { progress(); return; }
     label('play', active.paused ? 'Play (Space / K)' : 'Pause (Space / K)', active.paused ? 'play' : 'pause');
     label('mute', active.muted || !active.volume ? 'Unmute (M)' : 'Mute (M)', active.muted || !active.volume ? 'muted' : 'volume');
     const full = document.fullscreenElement === scope;
@@ -219,17 +232,21 @@
   function progress() {
     cancelAnimationFrame(progressFrame);
     progressFrame = 0;
-    if (!active || !visible || document.hidden) return;
+    if (!active || document.hidden) return;
     const duration = active.duration, valid = Number.isFinite(duration) && duration > 0;
-    ui.seek.disabled = !valid;
-    ui.seek.max = valid ? duration : 100;
-    ui.seek.value = valid ? clamp(active.currentTime, 0, duration) : 0;
-    ui.seek.setAttribute('aria-valuetext', `${time(active.currentTime)} of ${time(duration)}`);
-    ui.time.textContent = `${time(active.currentTime)} / ${time(duration)}`;
+    ui.progress.style.transform = `scaleX(${valid ? clamp(active.currentTime / duration, 0, 1) : 0})`;
+    if (visible && !manualHidden) {
+      ui.seek.disabled = !valid;
+      ui.seek.max = valid ? duration : 100;
+      ui.seek.value = valid ? clamp(active.currentTime, 0, duration) : 0;
+      ui.seek.setAttribute('aria-valuetext', `${time(active.currentTime)} of ${time(duration)}`);
+      ui.time.textContent = `${time(active.currentTime)} / ${time(duration)}`;
+    }
     if (!active.paused && !active.ended) progressFrame = requestAnimationFrame(progress);
   }
   function show() {
     if (!active) return;
+    if (manualHidden) { progress(); return; }
     visible = true;
     ui.bar.classList.remove('idle');
     sync();
@@ -238,9 +255,31 @@
       if (hovering || shadow.activeElement) return;
       visible = false;
       ui.bar.classList.add('idle');
-      cancelAnimationFrame(progressFrame);
-      progressFrame = 0;
+      progress();
     }, CONFIG.idleDelay);
+  }
+  function wakeReveal() {
+    if (!active || !manualHidden) return;
+    ui.reveal.classList.remove('dim');
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => {
+      revealTimer = 0;
+      ui.reveal.classList.add('dim');
+    }, CONFIG.idleDelay);
+  }
+  function toggleControls() {
+    manualHidden = !manualHidden;
+    clearTimeout(idleTimer);
+    clearTimeout(revealTimer);
+    shadow.activeElement?.blur();
+    ui.bar.classList.toggle('manual-hidden', manualHidden);
+    ui.bar.inert = manualHidden;
+    ui.bar.setAttribute('aria-hidden', String(manualHidden));
+    ui.reveal.hidden = !manualHidden;
+    if (manualHidden) {
+      visible = hovering = false;
+      wakeReveal(); progress();
+    } else show();
   }
   function place() {
     layoutFrame = 0;
@@ -317,6 +356,7 @@
     clearRotation(active);
     active?.pause();
     clearTimeout(idleTimer);
+    clearTimeout(revealTimer);
     cancelAnimationFrame(progressFrame);
     progressFrame = 0;
     active = null;
@@ -362,7 +402,8 @@
     else if (wasPlaying) playVideo();
     applyFocus();
     layout();
-    show();
+    if (manualHidden) { wakeReveal(); progress(); }
+    else show();
   }
   function selectActive() {
     // Read all candidate geometry before attach() performs any writes. Dialogs outrank the feed.
@@ -498,7 +539,7 @@
     const key = event.key.toLowerCase();
     if (!active && !(key === 'c' && prefs.focus)) return;
     if (key === 'escape' && document.fullscreenElement !== scope) return;
-    if (![' ', 'k', 'm', 'f', 'escape', 'c', 'l', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown', '<', '>', '[', ']', '0'].includes(key)) return;
+    if (![' ', 'k', 'm', 'f', 'escape', 'c', 'l', 'h', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown', '<', '>', '[', ']', '0'].includes(key)) return;
     event.preventDefault();
     event.stopImmediatePropagation(); // Prevent Instagram from also acting on the same playback shortcut.
     if (event.repeat && !key.startsWith('arrow')) return;
@@ -506,6 +547,7 @@
     else if (key === 'm') { active.muted = !active.muted; persistPlayback(true); }
     else if (key === 'f' || key === 'escape') fullscreen();
     else if (key === 'c') toggleFocus();
+    else if (key === 'h') toggleControls();
     else if (key === 'l') { active.loop = !active.loop; persistPlayback(); }
     else if (key === '[' || key === ']') rotate(key === '[' ? -1 : 1);
     else if (key === '0') rotate(0);
@@ -526,6 +568,8 @@
   ui.fullscreen.addEventListener('click', fullscreen);
   ui.rotateLeft.addEventListener('click', () => rotate(-1));
   ui.rotateRight.addEventListener('click', () => rotate(1));
+  ui.hide.addEventListener('click', toggleControls);
+  ui.reveal.addEventListener('click', toggleControls);
   ui.focus.addEventListener('click', toggleFocus);
   ui.loop.addEventListener('click', () => { if (active) { active.loop = !active.loop; persistPlayback(); show(); } });
   ui.speed.addEventListener('change', () => { if (active) { active.playbackRate = Number(ui.speed.value); persistPlayback(); show(); } });
@@ -559,6 +603,10 @@
     on(document, 'play', guardPlayback, { capture: true });
     on(document, 'playing', guardPlayback, { capture: true });
     on(document, 'pointermove', event => {
+      if (manualHidden) {
+        if (event.clientY >= innerHeight - CONFIG.revealZone) wakeReveal();
+        return;
+      }
       if (bounds && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom) show();
     }, { passive: true });
     on(document, 'scroll', () => { layout(); schedule(); }, { capture: true, passive: true });

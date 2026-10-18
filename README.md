@@ -46,6 +46,7 @@ No build step, runtime dependencies, background service worker, tracking, or vid
 | Wrapper fullscreen | Keep the video and custom controls together in fullscreen; use Up/Down to navigate reels. |
 | Focus mode | Hide comments and surrounding UI, center the reel, and restore the layout with one toggle. Works inside and outside fullscreen. |
 | Active reel detection | Follow the visible reel as you scroll or open a video dialog from Saved. |
+| Hide controls | Hide the panel instantly with the double-down button or H; restore it with H or the small bottom handle. |
 | Local preferences | Remember volume, mute, speed, loop, and focus state in your browser profile. |
 
 The overlay adapts to portrait reels with a two-row layout that keeps every control available.
@@ -79,6 +80,8 @@ No Node.js, npm, or build tools are needed to use the extension.
 
 Move the pointer over the reel to reveal the controls. They fade after 2.5 seconds of inactivity and remain visible while hovered or keyboard focused. The seek bar becomes available once Instagram supplies a finite duration. The volume slider also unmutes; dragging it to zero mutes.
 
+Click **Hide controls (H)** next to the rotate buttons or press **H** for sticky hiding. Mouse movement, focus, playback events, and reel changes keep the panel hidden in normal view, focus mode, fullscreen, and rotated viewing. Press **H** again or click the small up-chevron handle centered at the viewport's bottom edge to show it. The handle dims to 20% after 2.5 seconds; moving within the bottom 80px brightens it. A thin, non-interactive progress line and all playback shortcuts remain available while hidden. This state is temporary: refreshing the page starts with the panel visible.
+
 Click fullscreen or press **F**. The extension fullscreens the existing main/dialog container, which contains both Instagram's video and the extension's controls. It never moves or clones the video. Click fullscreen again, press **F**, or press **Esc** to leave.
 
 Click the split-panel icon or press **C** for focus mode. The video fills the viewport with its aspect ratio preserved; comments and surrounding UI are hidden. Toggle again to restore them. This works independently of fullscreen. The last focus setting follows you to the next reel.
@@ -96,6 +99,7 @@ Use the rotate buttons or **[ / ]** to turn a landscape reel in 90° steps. **0*
 | F | Enter or exit fullscreen |
 | Esc | Exit fullscreen |
 | C | Toggle focus / restore comments |
+| H | Hide / show controls (sticky until revealed or the page reloads) |
 | L | Toggle looping |
 | Left / Right | Seek backward / forward 5 seconds |
 | Up / Down | Previous / next reel, including in fullscreen |
@@ -164,7 +168,7 @@ Then run `node tests/browser.cjs` with a Linux Chromium installation at `/usr/bi
 CHROMIUM_PATH="$(node -p 'require("playwright").chromium.executablePath()')" node tests/browser.cjs
 ```
 
-The browser checks cover playback, seeking, settings, user-vs-automatic tab pause, blocked site auto-resume, preference-wins mute/volume, native mute clicks, muted autoplay recovery, rotation fitting/reset, typing guards, event isolation, wrapper fullscreen, focus continuity, Saved previous-button/keyboard fallback, persistence across reloads, auto-hide, SPA routes, and lifecycle cleanup. Fixtures use a generated video and do not contact Instagram. This environment used the administrator-policy fallback. A manual installation check against your logged-in Instagram layout is still needed.
+The browser checks cover playback, seeking, settings, user-vs-automatic tab pause, blocked site auto-resume, preference-wins mute/volume, native mute clicks, muted autoplay recovery, rotation fitting/reset, typing guards, event isolation, wrapper fullscreen, focus continuity, Saved previous-button/keyboard fallback, persistence across reloads, auto-hide, sticky hiding across reels, both reveal actions, handle dimming/placement, hidden-panel shortcuts and video clicks, progress-only updates while hidden, SPA routes, and lifecycle cleanup. Fixtures use a generated video and do not contact Instagram. This environment used the administrator-policy fallback. A manual installation check against your logged-in Instagram layout is still needed.
 
 <details>
 <summary>Project structure</summary>
@@ -214,7 +218,7 @@ One debounced MutationObserver discovers and prunes videos; one IntersectionObse
 
 Set `CONFIG.debug = true` temporarily to log which navigation path was used and why a dialog button was not found. It is off by default.
 
-The controls live in a Shadow DOM. Focus uses removable `data-rc-*` attributes and the `rc-focus` class on `<html>` to hide sibling branches along the active video's ancestor path. Visibility preserves the original feed layout, and the video's slot is reserved while it is centered. No comments, media nodes, or Instagram handlers are removed. Active-video listeners are aborted on switching; observers, listeners, timers, animation frames, and focus markers are cleaned up on page exit and restored after a back-forward cache return. Seek progress uses animation frames only while the bar is visible and playback is running.
+The controls live in a Shadow DOM. Focus uses removable `data-rc-*` attributes and the `rc-focus` class on `<html>` to hide sibling branches along the active video's ancestor path. Visibility preserves the original feed layout, and the video's slot is reserved while it is centered. No comments, media nodes, or Instagram handlers are removed. Active-video listeners are aborted on switching; observers, listeners, timers, animation frames, and focus markers are cleaned up on page exit and restored after a back-forward cache return. During playback, animation frames update the seek bar only while the panel is visible; while hidden, only the thin progress line updates. No progress frames run while paused or in a background tab. The reveal handle shares the existing Shadow DOM and fullscreen wrapper; its 36×14px button is the only clickable area left by manual hiding.
 
 </details>
 
