@@ -8,6 +8,8 @@ A small Manifest V3 extension for desktop Chrome, Edge, Brave, Opera, and Vivald
 
 Vanilla JavaScript and CSS. No dependencies, build step, background worker, account setup, analytics, network requests, downloads, or remote code. The only permission is `storage`; the content script runs only on `https://www.instagram.com/*`.
 
+**[Download Reel Focus v1.0.0](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/raw/refs/tags/v1.0.0/packages/reel-focus-1.0.0.zip)** · [SHA-256 checksum](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/blob/v1.0.0/packages/reel-focus-1.0.0.zip.sha256)
+
 ## Features
 
 | Feature | What it does |
@@ -32,7 +34,7 @@ The overlay adapts to portrait reels with a two-row layout that keeps every cont
 
 No Node.js, npm, or build tools are needed to use the extension.
 
-1. On this repository, choose **Code → Download ZIP**, then extract it. Alternatively, clone the repository:
+1. [Download the installable v1.0.0 ZIP](https://github.com/PranavP2207/Instagram-Reel-Tool-extension/raw/refs/tags/v1.0.0/packages/reel-focus-1.0.0.zip) and extract it. Alternatively, choose **Code → Download ZIP** for the complete source, or clone the repository:
 
    ```sh
    git clone https://github.com/PranavP2207/Instagram-Reel-Tool-extension.git
@@ -120,6 +122,9 @@ Instagram-Reel-Tool-extension/
 ├── README.md
 ├── docs/
 │   └── preview.png         # Screenshot of the generated offline fixture
+├── packages/
+│   ├── reel-focus-1.0.0.zip
+│   └── reel-focus-1.0.0.zip.sha256
 └── tests/                  # Development only
     ├── browser.cjs
     └── fixture.webm        # Generated solid-color test video
